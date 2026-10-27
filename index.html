@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analisis Kepuasan Pelanggan</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "Segoe UI", system-ui, sans-serif; font-size: 14px; line-height: 1.6; background: #f0f2f5; color: #1f2328; }
+
+  .header { background: #1e3a5f; color: #fff; padding: 18px 28px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+  .header h1 { font-size: 20px; font-weight: 700; }
+  .header span { font-size: 12px; color: #a8c4e0; }
+
+  .tabs { background: #fff; border-bottom: 2px solid #e5e7eb; display: flex; padding: 0 20px; overflow-x: auto; gap: 0; }
+  .tab { padding: 12px 18px; cursor: pointer; font-size: 13px; font-weight: 500; color: #57606a; border-bottom: 3px solid transparent; white-space: nowrap; transition: color .2s, border-color .2s; }
+  .tab.active { color: #1e3a5f; border-bottom-color: #3b82d4; }
+  .tab:hover:not(.active) { color: #1e3a5f; }
+
+  .page { display: none; padding: 22px; }
+  .page.active { display: block; }
+
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 20px; }
+  .kpi-card { background: #fff; border-radius: 10px; padding: 18px 20px; border-left: 4px solid #3b82d4; }
+  .kpi-card.green { border-left-color: #16a34a; }
+  .kpi-card.red   { border-left-color: #dc2626; }
+  .kpi-card.amber { border-left-color: #d97706; }
+  .kpi-label { font-size: 11px; color: #57606a; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
+  .kpi-value { font-size: 30px; font-weight: 700; color: #1e3a5f; line-height: 1; }
+  .kpi-sub   { font-size: 11px; color: #57606a; margin-top: 4px; }
+
+  .section { background: #fff; border-radius: 10px; padding: 18px 20px; margin-bottom: 18px; }
+  .section-title { font-size: 13px; font-weight: 700; color: #1e3a5f; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid #e5e7eb; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media(max-width:860px){ .grid-2 { grid-template-columns: 1fr; } }
+
+  svg { overflow: visible; }
+  .grid-line { stroke: #e5e7eb; stroke-width: 1; }
+  .axis-lbl  { font-size: 11px; fill: #57606a; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #57606a; }
+  .ldot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .lsq  { width: 10px; height: 10px; flex-shrink: 0; border-radius: 2px; }
+
+  .stat-row { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; }
+  .stat-box { background: #f7f8fa; border-radius: 8px; padding: 12px 16px; flex: 1; min-width: 110px; text-align: center; }
+  .stat-val  { font-size: 22px; font-weight: 700; color: #1e3a5f; }
+  .stat-lbl  { font-size: 11px; color: #57606a; text-transform: uppercase; }
+
+  .wordcloud { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 0 4px; }
+  .word { padding: 4px 10px; border-radius: 20px; font-weight: 600; cursor: default; }
+
+  .sent-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .sent-lbl  { width: 78px; font-size: 13px; font-weight: 500; }
+  .sent-bg   { flex: 1; height: 22px; background: #f0f2f5; border-radius: 4px; overflow: hidden; }
+  .sent-fill { height: 100%; border-radius: 4px; display: flex; align-items: center; padding-left: 8px; font-size: 12px; color: #fff; font-weight: 700; }
+  .sent-n    { width: 50px; text-align: right; font-size: 13px; font-weight: 700; color: #1e3a5f; }
+
+  .filters { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; align-items: flex-end; }
+  .fg { display: flex; flex-direction: column; gap: 3px; }
+  .fg label { font-size: 11px; color: #57606a; font-weight: 600; text-transform: uppercase; }
+  .fg select { padding: 7px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; background: #fff; color: #1f2328; }
+  .btn-reset { padding: 7px 16px; background: #1e3a5f; color: #fff; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; }
+  .btn-reset:hover { background: #2d5282; }
+
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: #1e3a5f; color: #fff; padding: 9px 11px; text-align: left; font-weight: 600; position: sticky; top: 0; z-index: 1; }
+  td { padding: 8px 11px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+  tr:hover td { background: #f7f8ff; }
+  tr:nth-child(even) td { background: #fafafa; }
+  tr:nth-child(even):hover td { background: #f0f4ff; }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+  .b-sp  { background: #dcfce7; color: #166534; }
+  .b-p   { background: #dbeafe; color: #1e40af; }
+  .b-n   { background: #fef9c3; color: #854d0e; }
+  .b-tp  { background: #fee2e2; color: #991b1b; }
+  .b-stp { background: #fce7f3; color: #9d174d; }
+  .b-pos { background: #d1fae5; color: #065f46; }
+  .b-neu { background: #fef3c7; color: #78350f; }
+  .b-neg { background: #fee2e2; color: #991b1b; }
+
+  .pg { display: flex; gap: 6px; justify-content: flex-end; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  .pg button { padding: 4px 10px; border: 1px solid #d1d5db; border-radius: 4px; cursor: pointer; background: #fff; font-size: 12px; }
+  .pg button:hover { background: #f0f4ff; }
+  .pg button.on { background: #1e3a5f; color: #fff; border-color: #1e3a5f; }
+  .pg span { font-size: 12px; color: #57606a; }
+
+  .rc-info { font-size: 12px; color: #57606a; margin-bottom: 8px; }
+
+  .score-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; }
+  .score-bar-lbl { width: 110px; font-size: 12px; color: #1f2328; }
+  .score-bar-bg  { flex: 1; height: 18px; background: #f0f2f5; border-radius: 4px; overflow: hidden; }
+  .score-bar-fill{ height: 100%; border-radius: 4px; display: flex; align-items: center; padding-left: 6px; font-size: 11px; color: #fff; font-weight: 700; }
+  .score-bar-val { width: 38px; text-align: right; font-size: 12px; font-weight: 700; color: #1e3a5f; }
+
+  footer { text-align: center; padding: 18px; font-size: 12px; color: #57606a; border-top: 1px solid #e5e7eb; background: #fff; margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📊 Analisis Kepuasan Pelanggan</h1>
+  <span>Tahun 2024 &nbsp;·&nbsp; Jan – Jun &nbsp;·&nbsp; 1,248 Responden</span>
+</div>
+
+<div class="tabs">
+  <div class="tab active" data-page="overview">Ringkasan KPI</div>
+  <div class="tab" data-page="trend">Trend Bulanan</div>
+  <div class="tab" data-page="breakdown">Pecahan &amp; Perkhidmatan</div>
+  <div class="tab" data-page="komen">Analisis Komen</div>
+  <div class="tab" data-page="jadual">Jadual Komen</div>
+</div>
+
+<!-- ═══════════════════ PAGE 1: OVERVIEW ═══════════════════ -->
+<div class="page active" id="page-overview">
+
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-label">Jumlah Responden</div>
+      <div class="kpi-value">1,248</div>
+      <div class="kpi-sub">Jan – Jun 2024</div>
+    </div>
+    <div class="kpi-card amber">
+      <div class="kpi-label">Purata Skor Kepuasan</div>
+      <div class="kpi-value">3.82</div>
+      <div class="kpi-sub">daripada 5.00</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-label">Pelanggan Puas</div>
+      <div class="kpi-value">71.4%</div>
+      <div class="kpi-sub">891 responden (Puas + Sangat Puas)</div>
+    </div>
+    <div class="kpi-card red">
+      <div class="kpi-label">Pelanggan Tidak Puas</div>
+      <div class="kpi-value">13.2%</div>
+      <div class="kpi-sub">165 responden (Tidak Puas + Sangat Tidak Puas)</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Indeks Kepuasan Keseluruhan</div>
+    <div class="stat-row">
+      <div class="stat-box"><div class="stat-val" style="color:#166534">474</div><div class="stat-lbl">Sangat Puas</div></div>
+      <div class="stat-box"><div class="stat-val" style="color:#1e40af">417</div><div class="stat-lbl">Puas</div></div>
+      <div class="stat-box"><div class="stat-val" style="color:#854d0e">192</div><div class="stat-lbl">Neutral</div></div>
+      <div class="stat-box"><div class="stat-val" style="color:#991b1b">113</div><div class="stat-lbl">Tidak Puas</div></div>
+      <div class="stat-box"><div class="stat-val" style="color:#9d174d">52</div><div class="stat-lbl">Sangat Tidak Puas</div></div>
+    </div>
+    <div style="margin-bottom:6px;display:flex;justify-content:space-between;font-size:12px;color:#57606a">
+      <span>Indeks Kepuasan Keseluruhan</span><span style="font-weight:700;color:#1e3a5f">76.4%</span>
+    </div>
+    <div style="background:#e5e7eb;border-radius:6px;height:14px;overflow:hidden">
+      <div style="width:76.4%;height:100%;background:#3b82d4;border-radius:6px"></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Prestasi Mengikut Cawangan</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Cawangan</th><th>Responden</th><th>Purata Skor</th><th>% Puas</th><th>% Tidak Puas</th><th>Trend</th></tr></thead>
+        <tbody>
+          <tr><td><b>KL Sentral</b></td><td>312</td><td>4.05</td><td><span style="color:#166534;font-weight:700">78.5%</span></td><td>8.7%</td><td style="color:#16a34a;font-weight:700">▲ +2.1%</td></tr>
+          <tr><td><b>Pulau Pinang</b></td><td>248</td><td>3.91</td><td><span style="color:#166534;font-weight:700">74.2%</span></td><td>11.3%</td><td style="color:#16a34a;font-weight:700">▲ +0.8%</td></tr>
+          <tr><td><b>Johor Bahru</b></td><td>235</td><td>3.74</td><td><span style="color:#854d0e;font-weight:700">68.5%</span></td><td>16.6%</td><td style="color:#dc2626;font-weight:700">▼ -1.2%</td></tr>
+          <tr><td><b>Shah Alam</b></td><td>279</td><td>3.68</td><td><span style="color:#854d0e;font-weight:700">66.3%</span></td><td>18.3%</td><td style="color:#dc2626;font-weight:700">▼ -0.5%</td></tr>
+          <tr><td><b>Kuching</b></td><td>174</td><td>3.71</td><td><span style="color:#854d0e;font-weight:700">70.1%</span></td><td>14.9%</td><td style="color:#16a34a;font-weight:700">▲ +1.4%</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ PAGE 2: TREND ═══════════════════ -->
+<div class="page" id="page-trend">
+  <div class="section">
+    <div class="section-title">Trend Kepuasan Bulanan — Jan hingga Jun 2024</div>
+    <svg viewBox="0 0 680 260" style="width:100%;max-width:100%">
+      <defs>
+        <linearGradient id="lg1" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#3b82d4" stop-opacity=".35"/><stop offset="100%" stop-color="#3b82d4" stop-opacity="0"/>
+        </linearGradient>
+        <linearGradient id="lg2" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#16a34a" stop-opacity=".25"/><stop offset="100%" stop-color="#16a34a" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <!-- grid -->
+      <line x1="55" y1="20" x2="55" y2="210" class="grid-line"/>
+      <line x1="55" y1="210" x2="670" y2="210" class="grid-line"/>
+      <line x1="55" y1="170" x2="670" y2="170" class="grid-line" stroke-dasharray="4,3"/>
+      <line x1="55" y1="130" x2="670" y2="130" class="grid-line" stroke-dasharray="4,3"/>
+      <line x1="55" y1="90"  x2="670" y2="90"  class="grid-line" stroke-dasharray="4,3"/>
+      <line x1="55" y1="50"  x2="670" y2="50"  class="grid-line" stroke-dasharray="4,3"/>
+      <!-- y axis labels (skor 1-5) -->
+      <text x="48" y="214" class="axis-lbl" text-anchor="end">1</text>
+      <text x="48" y="174" class="axis-lbl" text-anchor="end">2</text>
+      <text x="48" y="134" class="axis-lbl" text-anchor="end">3</text>
+      <text x="48" y="94"  class="axis-lbl" text-anchor="end">4</text>
+      <text x="48" y="54"  class="axis-lbl" text-anchor="end">5</text>
+      <!-- x axis months: evenly spaced x= 110,220,330,440,550,660 -->
+      <text x="110" y="228" class="axis-lbl" text-anchor="middle">Jan</text>
+      <text x="220" y="228" class="axis-lbl" text-anchor="middle">Feb</text>
+      <text x="330" y="228" class="axis-lbl" text-anchor="middle">Mac</text>
+      <text x="440" y="228" class="axis-lbl" text-anchor="middle">Apr</text>
+      <text x="550" y="228" class="axis-lbl" text-anchor="middle">Mei</text>
+      <text x="660" y="228" class="axis-lbl" text-anchor="middle">Jun</text>
+      <!-- Skor: Jan=3.60,Feb=3.70,Mac=3.78,Apr=3.88,Mei=3.95,Jun=4.05 -->
+      <!-- y = 210 - (val-1)/4*160 -->
+      <!-- 3.60→178, 3.70→172, 3.78→167, 3.88→161, 3.95→157, 4.05→150 -->
+      <polygon points="110,114 220,106 330,99 440,90 550,83 660,74 660,210 110,210" fill="url(#lg1)"/>
+      <polyline points="110,114 220,106 330,99 440,90 550,83 660,74" fill="none" stroke="#3b82d4" stroke-width="2.5"/>
+      <circle cx="110" cy="114" r="5" fill="#3b82d4"/><circle cx="220" cy="106" r="5" fill="#3b82d4"/>
+      <circle cx="330" cy="99"  r="5" fill="#3b82d4"/><circle cx="440" cy="90"  r="5" fill="#3b82d4"/>
+      <circle cx="550" cy="83"  r="5" fill="#3b82d4"/><circle cx="660" cy="74"  r="5" fill="#3b82d4"/>
+      <text x="110" y="103" class="axis-lbl" text-anchor="middle" fill="#3b82d4" font-weight="700">3.60</text>
+      <text x="220" y="95"  class="axis-lbl" text-anchor="middle" fill="#3b82d4" font-weight="700">3.70</text>
+      <text x="330" y="88"  class="axis-lbl" text-anchor="middle" fill="#3b82d4" font-weight="700">3.78</text>
+      <text x="440" y="79"  class="axis-lbl" text-anchor="middle" fill="#3b82d4" font-weight="700">3.88</text>
+      <text x="550" y="72"  class="axis-lbl" text-anchor="middle" fill="#3b82d4" font-weight="700">3.95</text>
+      <text x="660" y="63"  class="axis-lbl" text-anchor="middle" fill="#3b82d4" font-weight="700">4.05</text>
+      <!-- % Puas scaled /100*160: Jan=63→y=108.2, Feb=66→103.4, Mac=69→98.6, Apr=72→93.8, Mei=74→91.6, Jun=78→85.2 -->
+      <!-- y=210-(val/100)*160 -->
+      <polygon points="110,109 220,104 330,100 440,94 550,92 660,85 660,210 110,210" fill="url(#lg2)"/>
+      <polyline points="110,109 220,104 330,100 440,94 550,92 660,85" fill="none" stroke="#16a34a" stroke-width="2" stroke-dasharray="6,3"/>
+      <circle cx="110" cy="109" r="4" fill="#16a34a"/><circle cx="220" cy="104" r="4" fill="#16a34a"/>
+      <circle cx="330" cy="100" r="4" fill="#16a34a"/><circle cx="440" cy="94"  r="4" fill="#16a34a"/>
+      <circle cx="550" cy="92"  r="4" fill="#16a34a"/><circle cx="660" cy="85"  r="4" fill="#16a34a"/>
+    </svg>
+    <div class="legend">
+      <div class="legend-item"><div class="lsq" style="background:#3b82d4"></div>Purata Skor Kepuasan (skala kiri, 1–5)</div>
+      <div class="legend-item"><div class="lsq" style="background:#16a34a"></div>% Pelanggan Puas (skala kanan, %×1.6)</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Jadual Data Trend Bulanan</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Bulan</th><th>Responden</th><th>Purata Skor</th><th>% Puas</th><th>% Neutral</th><th>% Tidak Puas</th><th>Perubahan Skor</th></tr></thead>
+        <tbody>
+          <tr><td>Januari 2024</td><td>185</td><td>3.60</td><td>63.2%</td><td>18.9%</td><td>17.8%</td><td style="color:#57606a">—</td></tr>
+          <tr><td>Februari 2024</td><td>192</td><td>3.70</td><td>66.1%</td><td>17.7%</td><td>16.1%</td><td style="color:#16a34a;font-weight:700">▲ +0.10</td></tr>
+          <tr><td>Mac 2024</td><td>201</td><td>3.78</td><td>69.2%</td><td>16.4%</td><td>14.4%</td><td style="color:#16a34a;font-weight:700">▲ +0.08</td></tr>
+          <tr><td>April 2024</td><td>218</td><td>3.88</td><td>72.0%</td><td>15.6%</td><td>12.4%</td><td style="color:#16a34a;font-weight:700">▲ +0.10</td></tr>
+          <tr><td>Mei 2024</td><td>224</td><td>3.95</td><td>74.1%</td><td>14.7%</td><td>11.2%</td><td style="color:#16a34a;font-weight:700">▲ +0.07</td></tr>
+          <tr><td>Jun 2024</td><td>228</td><td>4.05</td><td>78.5%</td><td>13.2%</td><td>8.3%</td><td style="color:#16a34a;font-weight:700">▲ +0.10</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ PAGE 3: PECAHAN & PERKHIDMATAN ═══════════════════ -->
+<div class="page" id="page-breakdown">
+
+  <div class="grid-2">
+    <!-- Donut: Pecahan Tahap Kepuasan -->
+    <div class="section">
+      <div class="section-title">Pecahan Tahap Kepuasan (Donut Chart)</div>
+      <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+        <svg viewBox="0 0 180 180" width="180" height="180" style="flex-shrink:0">
+          <!-- r=65, cx=90, cy=90, stroke-width=36, circumference=408.41 -->
+          <!-- SP  38.0% → 155.2  -->
+          <!-- P   33.4% → 136.4, offset=-155.2 -->
+          <!-- N   15.4% →  62.9, offset=-291.6 -->
+          <!-- TP   9.1% →  37.2, offset=-354.5 -->
+          <!-- STP  4.1% →  16.7, offset=-391.7 -->
+          <circle cx="90" cy="90" r="65" fill="none" stroke="#e5e7eb" stroke-width="36"/>
+          <circle cx="90" cy="90" r="65" fill="none" stroke="#16a34a" stroke-width="36"
+                  stroke-dasharray="155.2 408.41" transform="rotate(-90 90 90)"/>
+          <circle cx="90" cy="90" r="65" fill="none" stroke="#3b82d4" stroke-width="36"
+                  stroke-dasharray="136.4 408.41" stroke-dashoffset="-155.2" transform="rotate(-90 90 90)"/>
+          <circle cx="90" cy="90" r="65" fill="none" stroke="#f59e0b" stroke-width="36"
+                  stroke-dasharray="62.9 408.41" stroke-dashoffset="-291.6" transform="rotate(-90 90 90)"/>
+          <circle cx="90" cy="90" r="65" fill="none" stroke="#ef4444" stroke-width="36"
+                  stroke-dasharray="37.2 408.41" stroke-dashoffset="-354.5" transform="rotate(-90 90 90)"/>
+          <circle cx="90" cy="90" r="65" fill="none" stroke="#9d174d" stroke-width="36"
+                  stroke-dasharray="16.7 408.41" stroke-dashoffset="-391.7" transform="rotate(-90 90 90)"/>
+          <text x="90" y="85"  text-anchor="middle" font-size="20" font-weight="700" fill="#1e3a5f">71.4%</text>
+          <text x="90" y="100" text-anchor="middle" font-size="10" fill="#57606a">Kadar Kepuasan</text>
+        </svg>
+        <div class="legend" style="flex-direction:column;gap:8px">
+          <div class="legend-item"><div class="ldot" style="background:#16a34a"></div>Sangat Puas &nbsp;<b>38.0%</b><span style="color:#aaa">&nbsp;(474)</span></div>
+          <div class="legend-item"><div class="ldot" style="background:#3b82d4"></div>Puas &nbsp;<b>33.4%</b><span style="color:#aaa">&nbsp;(417)</span></div>
+          <div class="legend-item"><div class="ldot" style="background:#f59e0b"></div>Neutral &nbsp;<b>15.4%</b><span style="color:#aaa">&nbsp;(192)</span></div>
+          <div class="legend-item"><div class="ldot" style="background:#ef4444"></div>Tidak Puas &nbsp;<b>9.1%</b><span style="color:#aaa">&nbsp;(113)</span></div>
+          <div class="legend-item"><div class="ldot" style="background:#9d174d"></div>Sangat Tidak Puas &nbsp;<b>4.1%</b><span style="color:#aaa">&nbsp;(52)</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bar: Skor mengikut Cawangan -->
+    <div class="section">
+      <div class="section-title">Purata Skor Mengikut Cawangan</div>
+      <div class="score-bar-row"><div class="score-bar-lbl">KL Sentral</div><div class="score-bar-bg"><div class="score-bar-fill" style="width:81%;background:#1e3a5f">4.05</div></div><div class="score-bar-val">4.05</div></div>
+      <div class="score-bar-row"><div class="score-bar-lbl">Pulau Pinang</div><div class="score-bar-bg"><div class="score-bar-fill" style="width:78.2%;background:#3b82d4">3.91</div></div><div class="score-bar-val">3.91</div></div>
+      <div class="score-bar-row"><div class="score-bar-lbl">Johor Bahru</div><div class="score-bar-bg"><div class="score-bar-fill" style="width:74.8%;background:#3b82d4">3.74</div></div><div class="score-bar-val">3.74</div></div>
+      <div class="score-bar-row"><div class="score-bar-lbl">Shah Alam</div><div class="score-bar-bg"><div class="score-bar-fill" style="width:73.6%;background:#d97706">3.68</div></div><div class="score-bar-val">3.68</div></div>
+      <div class="score-bar-row"><div class="score-bar-lbl">Kuching</div><div class="score-bar-bg"><div class="score-bar-fill" style="width:74.2%;background:#3b82d4">3.71</div></div><div class="score-bar-val">3.71</div></div>
+    </div>
+  </div>
+
+  <!-- Bar Chart: Skor mengikut Perkhidmatan -->
+  <div class="section">
+    <div class="section-title">Analisis Skor Mengikut Perkhidmatan (Bar Chart)</div>
+    <svg viewBox="0 0 660 230" style="width:100%">
+      <defs>
+        <linearGradient id="bg1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3b82d4"/><stop offset="100%" stop-color="#1e3a5f"/></linearGradient>
+        <linearGradient id="bg2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#16a34a"/><stop offset="100%" stop-color="#14532d"/></linearGradient>
+        <linearGradient id="bg3" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#b45309"/></linearGradient>
+        <linearGradient id="bg4" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#7c5cd8"/><stop offset="100%" stop-color="#5b21b6"/></linearGradient>
+        <linearGradient id="bg5" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#ec4899"/><stop offset="100%" stop-color="#be185d"/></linearGradient>
+      </defs>
+      <!-- grid lines: y=190 (0), 152(1), 114(2), 76(3), 38(4), 0(5) → y = 190-(val/5)*190 -->
+      <line x1="50" y1="190" x2="650" y2="190" class="grid-line"/>
+      <line x1="50" y1="152" x2="650" y2="152" class="grid-line" stroke-dasharray="4,3"/>
+      <line x1="50" y1="114" x2="650" y2="114" class="grid-line" stroke-dasharray="4,3"/>
+      <line x1="50" y1="76"  x2="650" y2="76"  class="grid-line" stroke-dasharray="4,3"/>
+      <line x1="50" y1="38"  x2="650" y2="38"  class="grid-line" stroke-dasharray="4,3"/>
+      <line x1="50" y1="0"   x2="650" y2="0"   class="grid-line" stroke-dasharray="4,3"/>
+      <text x="44" y="193" class="axis-lbl" text-anchor="end">0</text>
+      <text x="44" y="155" class="axis-lbl" text-anchor="end">1</text>
+      <text x="44" y="117" class="axis-lbl" text-anchor="end">2</text>
+      <text x="44" y="79"  class="axis-lbl" text-anchor="end">3</text>
+      <text x="44" y="41"  class="axis-lbl" text-anchor="end">4</text>
+      <text x="44" y="5"   class="axis-lbl" text-anchor="end">5</text>
+      <!-- Kaunter 4.12 → height=4.12/5*190=156.6, y=190-156.6=33.4 -->
+      <rect x="72"  y="34"  width="80" height="156" rx="4" fill="url(#bg1)"/>
+      <text x="112" y="27"  class="axis-lbl" text-anchor="middle" fill="#3b82d4" font-weight="700">4.12</text>
+      <text x="112" y="208" class="axis-lbl" text-anchor="middle">Kaunter</text>
+      <!-- Online 3.95 → 150.1, y=39.9 -->
+      <rect x="192" y="40"  width="80" height="150" rx="4" fill="url(#bg2)"/>
+      <text x="232" y="33"  class="axis-lbl" text-anchor="middle" fill="#16a34a" font-weight="700">3.95</text>
+      <text x="232" y="208" class="axis-lbl" text-anchor="middle">Online</text>
+      <!-- Telefon 3.48 → 132.2, y=57.8 -->
+      <rect x="312" y="58"  width="80" height="132" rx="4" fill="url(#bg3)"/>
+      <text x="352" y="51"  class="axis-lbl" text-anchor="middle" fill="#d97706" font-weight="700">3.48</text>
+      <text x="352" y="208" class="axis-lbl" text-anchor="middle">Telefon</text>
+      <!-- Aplikasi 4.28 → 162.6, y=27.4 -->
+      <rect x="432" y="27"  width="80" height="163" rx="4" fill="url(#bg4)"/>
+      <text x="472" y="20"  class="axis-lbl" text-anchor="middle" fill="#7c5cd8" font-weight="700">4.28</text>
+      <text x="472" y="208" class="axis-lbl" text-anchor="middle">Aplikasi</text>
+      <!-- Emel 3.31 → 125.8, y=64.2 -->
+      <rect x="552" y="64"  width="80" height="126" rx="4" fill="url(#bg5)"/>
+      <text x="592" y="57"  class="axis-lbl" text-anchor="middle" fill="#ec4899" font-weight="700">3.31</text>
+      <text x="592" y="208" class="axis-lbl" text-anchor="middle">Emel</text>
+    </svg>
+    <div style="font-size:11px;color:#57606a;text-align:center;margin-top:4px">Purata Skor Kepuasan (1–5) Mengikut Saluran Perkhidmatan</div>
+  </div>
+
+  <!-- Matrik Cawangan × Perkhidmatan -->
+  <div class="section">
+    <div class="section-title">Matrik Prestasi: Cawangan × Perkhidmatan (Purata Skor)</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Cawangan</th><th>Kaunter</th><th>Online</th><th>Telefon</th><th>Aplikasi</th><th>Emel</th></tr></thead>
+        <tbody>
+          <tr><td><b>KL Sentral</b></td><td style="color:#166534;font-weight:700">4.35</td><td>4.10</td><td>3.72</td><td style="color:#7c5cd8;font-weight:700">4.45</td><td>3.55</td></tr>
+          <tr><td><b>Pulau Pinang</b></td><td>4.18</td><td>4.02</td><td>3.55</td><td>4.30</td><td>3.45</td></tr>
+          <tr><td><b>Johor Bahru</b></td><td>3.98</td><td>3.85</td><td>3.40</td><td>4.15</td><td style="color:#dc2626;font-weight:700">3.08</td></tr>
+          <tr><td><b>Shah Alam</b></td><td>3.95</td><td>3.78</td><td>3.25</td><td>4.10</td><td>3.20</td></tr>
+          <tr><td><b>Kuching</b></td><td>4.02</td><td>3.90</td><td>3.48</td><td>4.20</td><td>3.28</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ PAGE 4: ANALISIS KOMEN ═══════════════════ -->
+<div class="page" id="page-komen">
+
+  <div class="section">
+    <div class="section-title">Word Cloud — Kata Kunci Utama daripada Komen Pelanggan</div>
+    <div class="wordcloud" id="wc"></div>
+  </div>
+
+  <div class="grid-2">
+    <!-- Jadual Tema Utama -->
+    <div class="section">
+      <div class="section-title">Jadual Tema Utama</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Tema</th><th>Kekerapan</th><th>%</th><th>Sentimen</th></tr></thead>
+          <tbody>
+            <tr><td>● Layanan Mesra</td><td>287</td><td>23.0%</td><td><span class="badge b-pos">Positif</span></td></tr>
+            <tr><td>● Proses Mudah</td><td>241</td><td>19.3%</td><td><span class="badge b-pos">Positif</span></td></tr>
+            <tr><td>● Masa Menunggu Lama</td><td>198</td><td>15.9%</td><td><span class="badge b-neg">Negatif</span></td></tr>
+            <tr><td>● Kemudahan Aplikasi</td><td>175</td><td>14.0%</td><td><span class="badge b-pos">Positif</span></td></tr>
+            <tr><td>● Respons Lambat</td><td>142</td><td>11.4%</td><td><span class="badge b-neg">Negatif</span></td></tr>
+            <tr><td>● Maklumat Tepat</td><td>118</td><td>9.5%</td><td><span class="badge b-pos">Positif</span></td></tr>
+            <tr><td>● Sistem Bermasalah</td><td>87</td><td>7.0%</td><td><span class="badge b-neg">Negatif</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Analisis Sentimen -->
+    <div class="section">
+      <div class="section-title">Analisis Sentimen Komen Pelanggan</div>
+
+      <div style="margin-bottom:18px">
+        <div class="sent-row">
+          <div class="sent-lbl" style="color:#065f46">😊 Positif</div>
+          <div class="sent-bg"><div class="sent-fill" style="width:62%;background:#16a34a">62%</div></div>
+          <div class="sent-n">774</div>
+        </div>
+        <div class="sent-row">
+          <div class="sent-lbl" style="color:#78350f">😐 Neutral</div>
+          <div class="sent-bg"><div class="sent-fill" style="width:21%;background:#d97706">21%</div></div>
+          <div class="sent-n">262</div>
+        </div>
+        <div class="sent-row">
+          <div class="sent-lbl" style="color:#991b1b">😞 Negatif</div>
+          <div class="sent-bg"><div class="sent-fill" style="width:17%;background:#dc2626">17%</div></div>
+          <div class="sent-n">212</div>
+        </div>
+      </div>
+
+      <!-- Donut Sentimen -->
+      <div style="display:flex;align-items:center;gap:16px">
+        <svg viewBox="0 0 120 120" width="110" height="110">
+          <!-- r=40, circumference=251.33 -->
+          <circle cx="60" cy="60" r="40" fill="none" stroke="#e5e7eb" stroke-width="22"/>
+          <circle cx="60" cy="60" r="40" fill="none" stroke="#16a34a" stroke-width="22"
+                  stroke-dasharray="155.8 251.33" transform="rotate(-90 60 60)"/>
+          <circle cx="60" cy="60" r="40" fill="none" stroke="#d97706" stroke-width="22"
+                  stroke-dasharray="52.8 251.33" stroke-dashoffset="-155.8" transform="rotate(-90 60 60)"/>
+          <circle cx="60" cy="60" r="40" fill="none" stroke="#dc2626" stroke-width="22"
+                  stroke-dasharray="42.7 251.33" stroke-dashoffset="-208.6" transform="rotate(-90 60 60)"/>
+          <text x="60" y="56" text-anchor="middle" font-size="13" font-weight="700" fill="#1e3a5f">1,248</text>
+          <text x="60" y="68" text-anchor="middle" font-size="8" fill="#57606a">komen</text>
+        </svg>
+        <div class="legend" style="flex-direction:column;gap:8px">
+          <div class="legend-item"><div class="ldot" style="background:#16a34a"></div>Positif — 774 (62%)</div>
+          <div class="legend-item"><div class="ldot" style="background:#d97706"></div>Neutral — 262 (21%)</div>
+          <div class="legend-item"><div class="ldot" style="background:#dc2626"></div>Negatif — 212 (17%)</div>
+        </div>
+      </div>
+
+      <!-- Sentimen Trend -->
+      <div style="margin-top:16px">
+        <div style="font-size:12px;font-weight:700;color:#1e3a5f;margin-bottom:8px">Trend Sentimen Bulanan</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Bulan</th><th style="background:#16a34a">😊 +</th><th style="background:#d97706">😐 ~</th><th style="background:#dc2626">😞 −</th></tr></thead>
+            <tbody>
+              <tr><td>Jan</td><td style="color:#166534;font-weight:700">58%</td><td>22%</td><td style="color:#991b1b;font-weight:700">20%</td></tr>
+              <tr><td>Feb</td><td style="color:#166534;font-weight:700">60%</td><td>21%</td><td style="color:#991b1b;font-weight:700">19%</td></tr>
+              <tr><td>Mac</td><td style="color:#166534;font-weight:700">62%</td><td>21%</td><td style="color:#991b1b;font-weight:700">17%</td></tr>
+              <tr><td>Apr</td><td style="color:#166534;font-weight:700">63%</td><td>20%</td><td style="color:#991b1b;font-weight:700">17%</td></tr>
+              <tr><td>Mei</td><td style="color:#166534;font-weight:700">64%</td><td>21%</td><td style="color:#991b1b;font-weight:700">15%</td></tr>
+              <tr><td>Jun</td><td style="color:#166534;font-weight:700">66%</td><td>20%</td><td style="color:#991b1b;font-weight:700">14%</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ PAGE 5: JADUAL KOMEN ═══════════════════ -->
+<div class="page" id="page-jadual">
+  <div class="section">
+    <div class="section-title">Jadual Komen Pelanggan — Boleh Ditapis</div>
+
+    <div class="filters">
+      <div class="fg"><label>Bulan</label>
+        <select id="f-bulan">
+          <option value="">Semua Bulan</option>
+          <option>Jan 2024</option><option>Feb 2024</option><option>Mac 2024</option>
+          <option>Apr 2024</option><option>Mei 2024</option><option>Jun 2024</option>
+        </select>
+      </div>
+      <div class="fg"><label>Cawangan</label>
+        <select id="f-cawangan">
+          <option value="">Semua Cawangan</option>
+          <option>KL Sentral</option><option>Pulau Pinang</option><option>Johor Bahru</option>
+          <option>Shah Alam</option><option>Kuching</option>
+        </select>
+      </div>
+      <div class="fg"><label>Perkhidmatan</label>
+        <select id="f-servis">
+          <option value="">Semua Perkhidmatan</option>
+          <option>Kaunter</option><option>Online</option><option>Telefon</option>
+          <option>Aplikasi</option><option>Emel</option>
+        </select>
+      </div>
+      <div class="fg"><label>Tahap Kepuasan</label>
+        <select id="f-tahap">
+          <option value="">Semua Tahap</option>
+          <option>Sangat Puas</option><option>Puas</option><option>Neutral</option>
+          <option>Tidak Puas</option><option>Sangat Tidak Puas</option>
+        </select>
+      </div>
+      <div class="fg"><label>Sentimen</label>
+        <select id="f-sentimen">
+          <option value="">Semua Sentimen</option>
+          <option>Positif</option><option>Neutral</option><option>Negatif</option>
+        </select>
+      </div>
+      <button class="btn-reset" id="btn-reset">↺ Set Semula</button>
+    </div>
+
+    <div class="rc-info" id="rc-info">Menunjukkan semua rekod</div>
+
+    <div class="table-wrap" style="max-height:500px;overflow-y:auto">
+      <table id="tbl-komen">
+        <thead>
+          <tr>
+            <th style="min-width:32px">#</th>
+            <th style="min-width:90px">Tarikh</th>
+            <th style="min-width:105px">Cawangan</th>
+            <th style="min-width:90px">Perkhidmatan</th>
+            <th style="min-width:44px;text-align:center">Skor</th>
+            <th style="min-width:120px">Tahap</th>
+            <th style="min-width:80px">Sentimen</th>
+            <th>Komen Pelanggan</th>
+          </tr>
+        </thead>
+        <tbody id="tbl-body"></tbody>
+      </table>
+    </div>
+    <div class="pg" id="pg-ctrl"></div>
+  </div>
+</div>
+
+<footer style="border-top:1px solid #e5e7eb;margin-top:0">Made with IBM Bob</footer>
+
+<script>
+// ── DATA ─────────────────────────────────────────────────────────────────────
+const BULAN_LIST  = ['Jan 2024','Feb 2024','Mac 2024','Apr 2024','Mei 2024','Jun 2024'];
+const CAW_LIST    = ['KL Sentral','Pulau Pinang','Johor Bahru','Shah Alam','Kuching'];
+const SRV_LIST    = ['Kaunter','Online','Telefon','Aplikasi','Emel'];
+const TAHAP_LIST  = ['Sangat Puas','Puas','Neutral','Tidak Puas','Sangat Tidak Puas'];
+const SKOR_MAP    = {'Sangat Puas':5,'Puas':4,'Neutral':3,'Tidak Puas':2,'Sangat Tidak Puas':1};
+const SENT_MAP    = {'Sangat Puas':'Positif','Puas':'Positif','Neutral':'Neutral','Tidak Puas':'Negatif','Sangat Tidak Puas':'Negatif'};
+const WEIGHTS     = [0.38, 0.334, 0.154, 0.091, 0.041];
+
+const KOMEN = {
+  'Sangat Puas':[
+    'Perkhidmatan sangat memuaskan! Staf mesra dan cepat membantu.',
+    'Pengalaman yang sangat baik. Proses mudah dan tanpa sebarang masalah.',
+    'Tahniah! Setiap langkah dijelaskan dengan jelas dan teliti oleh staf.',
+    'Staf sangat profesional dan sabar melayan pertanyaan saya.',
+    'Aplikasi mudah digunakan dan semua urusan selesai dalam masa singkat.',
+    'Layanan terbaik yang pernah saya terima. Sangat berpuas hati.',
+    'Terima kasih atas perkhidmatan cemerlang! Akan datang lagi.',
+  ],
+  'Puas':[
+    'Perkhidmatan baik secara keseluruhannya, tiada aduan besar.',
+    'Urusan selesai tanpa masalah yang ketara. Staf membantu.',
+    'Staf membantu walaupun agak sibuk pada masa itu.',
+    'Proses agak panjang tetapi hasil memuaskan.',
+    'Boleh ditingkatkan lagi tetapi secara keseluruhan pengalaman okay.',
+    'Kaunter bersih dan teratur. Staf bersopan santun dan peramah.',
+  ],
+  'Neutral':[
+    'Perkhidmatan biasa sahaja, tiada yang istimewa.',
+    'Masa menunggu agak lama tetapi urusan akhirnya selesai.',
+    'Staf mencukupi tetapi tidak terlalu membantu atau proaktif.',
+    'Sistem agak perlahan tetapi akhirnya berjaya diselesaikan.',
+    'Okay sahaja, tidak lebih tidak kurang daripada yang dijangka.',
+  ],
+  'Tidak Puas':[
+    'Terpaksa menunggu lebih sejam tanpa penjelasan yang jelas.',
+    'Staf kurang berpengetahuan tentang produk yang ditawarkan kepada saya.',
+    'Sistem dalam talian kerap bermasalah dan sangat menyusahkan.',
+    'Maklumat yang diberikan tidak konsisten antara dua orang staf.',
+    'Proses terlalu rumit dan memerlukan terlalu banyak dokumen sokongan.',
+  ],
+  'Sangat Tidak Puas':[
+    'Perkhidmatan sangat mengecewakan. Masalah saya tidak diselesaikan.',
+    'Staf tidak membantu langsung dan kurang bersopan semasa berurusan.',
+    'Sistem down selama dua jam lebih. Sangat tidak profesional.',
+    'Aduan saya diabaikan sepenuhnya. Tiada sebarang tindakan susulan diambil.',
+  ]
+};
+
+// Seeded pseudo-random (LCG)
+let _s = 42;
+const sr  = () => { _s = (_s * 1664525 + 1013904223) & 0x7fffffff; return _s / 0x7fffffff; };
+const si  = (a,b) => a + Math.floor(sr() * (b - a + 1));
+const sc  = arr   => arr[Math.floor(sr() * arr.length)];
+
+// Generate 60 records
+const MONTHS_NUM = {'Jan 2024':'01','Feb 2024':'02','Mac 2024':'03','Apr 2024':'04','Mei 2024':'05','Jun 2024':'06'};
+const rawData = [];
+for (let i = 1; i <= 60; i++) {
+  const bulan    = BULAN_LIST[Math.floor((i - 1) / 10)];
+  const cawangan = sc(CAW_LIST);
+  const servis   = sc(SRV_LIST);
+  let r = sr(), cum = 0, ti = 0;
+  for (let t = 0; t < WEIGHTS.length; t++) { cum += WEIGHTS[t]; if (r < cum) { ti = t; break; } }
+  const tahap    = TAHAP_LIST[ti];
+  const skor     = SKOR_MAP[tahap];
+  const sentimen = SENT_MAP[tahap];
+  const komen    = KOMEN[tahap][si(0, KOMEN[tahap].length - 1)];
+  const day      = String(si(1, 28)).padStart(2, '0');
+  const tarikh   = `${day}/${MONTHS_NUM[bulan]}/2024`;
+  rawData.push({ id: i, tarikh, bulan, cawangan, servis, skor, tahap, sentimen, komen });
+}
+
+// ── WORD CLOUD ────────────────────────────────────────────────────────────────
+const WC_DATA = [
+  {w:'Mesra',sz:46,c:'#1e3a5f'},{w:'Cepat',sz:40,c:'#16a34a'},{w:'Mudah',sz:38,c:'#3b82d4'},
+  {w:'Profesional',sz:34,c:'#7c5cd8'},{w:'Bersih',sz:30,c:'#0891b2'},{w:'Menunggu',sz:28,c:'#ef4444'},
+  {w:'Lambat',sz:26,c:'#dc2626'},{w:'Membantu',sz:36,c:'#16a34a'},{w:'Aplikasi',sz:32,c:'#3b82d4'},
+  {w:'Sistem',sz:24,c:'#d97706'},{w:'Staf',sz:44,c:'#1e3a5f'},{w:'Proses',sz:28,c:'#7c5cd8'},
+  {w:'Maklumat',sz:22,c:'#0891b2'},{w:'Memuaskan',sz:38,c:'#16a34a'},{w:'Tepat',sz:24,c:'#3b82d4'},
+  {w:'Sabar',sz:20,c:'#166534'},{w:'Masalah',sz:26,c:'#ef4444'},{w:'Aduan',sz:18,c:'#dc2626'},
+  {w:'Baik',sz:32,c:'#16a34a'},{w:'Berpuas Hati',sz:30,c:'#065f46'},{w:'Kaunter',sz:24,c:'#3b82d4'},
+  {w:'Mengecewakan',sz:22,c:'#dc2626'},{w:'Pantas',sz:20,c:'#16a34a'},{w:'Jelas',sz:18,c:'#3b82d4'},
+  {w:'Sopan',sz:26,c:'#0891b2'},{w:'Bermasalah',sz:22,c:'#ef4444'},{w:'Selesai',sz:28,c:'#166534'},
+];
+const wcEl = document.getElementById('wc');
+WC_DATA.forEach(({w, sz, c}) => {
+  const s = document.createElement('span');
+  s.className = 'word';
+  s.textContent = w;
+  s.style.fontSize = (sz * 0.36 + 9) + 'px';
+  s.style.color = c;
+  s.style.background = c + '18';
+  s.style.border = '1px solid ' + c + '30';
+  wcEl.appendChild(s);
+});
+
+// ── TABS ──────────────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('page-' + tab.dataset.page).classList.add('active');
+  });
+});
+
+// ── TABLE ─────────────────────────────────────────────────────────────────────
+const TAHAP_BC = {
+  'Sangat Puas':'b-sp','Puas':'b-p','Neutral':'b-n','Tidak Puas':'b-tp','Sangat Tidak Puas':'b-stp'
+};
+const SENT_BC  = {'Positif':'b-pos','Neutral':'b-neu','Negatif':'b-neg'};
+const SKOR_CLR = [,'#dc2626','#ef4444','#d97706','#3b82d4','#16a34a'];
+
+let curPage = 1;
+const PER_PAGE = 10;
+
+function getFiltered() {
+  const bln = document.getElementById('f-bulan').value;
+  const caw = document.getElementById('f-cawangan').value;
+  const srv = document.getElementById('f-servis').value;
+  const thp = document.getElementById('f-tahap').value;
+  const snt = document.getElementById('f-sentimen').value;
+  return rawData.filter(r =>
+    (!bln || r.bulan === bln) &&
+    (!caw || r.cawangan === caw) &&
+    (!srv || r.servis === srv) &&
+    (!thp || r.tahap === thp) &&
+    (!snt || r.sentimen === snt)
+  );
+}
+
+function renderTable() {
+  const data  = getFiltered();
+  const total = data.length;
+  const pages = Math.ceil(total / PER_PAGE) || 1;
+  if (curPage > pages) curPage = 1;
+
+  const slice = data.slice((curPage - 1) * PER_PAGE, curPage * PER_PAGE);
+  const tbody = document.getElementById('tbl-body');
+  tbody.innerHTML = '';
+  slice.forEach((r, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      `<td style="color:#57606a">${(curPage - 1) * PER_PAGE + i + 1}</td>` +
+      `<td style="white-space:nowrap;font-size:12px">${r.tarikh}</td>` +
+      `<td>${r.cawangan}</td>` +
+      `<td>${r.servis}</td>` +
+      `<td style="text-align:center;font-weight:700;color:${SKOR_CLR[r.skor]}">${r.skor}</td>` +
+      `<td><span class="badge ${TAHAP_BC[r.tahap]}">${r.tahap}</span></td>` +
+      `<td><span class="badge ${SENT_BC[r.sentimen]}">${r.sentimen}</span></td>` +
+      `<td style="font-size:12px">${r.komen}</td>`;
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('rc-info').textContent =
+    total === rawData.length
+      ? `Menunjukkan semua ${total} rekod`
+      : `Menunjukkan ${total} daripada ${rawData.length} rekod (ditapis)`;
+
+  // Pagination
+  const pg = document.getElementById('pg-ctrl');
+  pg.innerHTML = '';
+  if (pages > 1) {
+    const prev = document.createElement('button');
+    prev.textContent = '‹ Prev'; prev.disabled = curPage === 1;
+    prev.addEventListener('click', () => { curPage--; renderTable(); });
+    pg.appendChild(prev);
+
+    const start = Math.max(1, curPage - 2);
+    const end   = Math.min(pages, curPage + 2);
+    if (start > 1) { const b = document.createElement('button'); b.textContent = '1'; b.addEventListener('click', () => { curPage = 1; renderTable(); }); pg.appendChild(b); if (start > 2) { const sp = document.createElement('span'); sp.textContent = '…'; pg.appendChild(sp); } }
+    for (let p = start; p <= end; p++) {
+      const b = document.createElement('button');
+      b.textContent = p; if (p === curPage) b.classList.add('on');
+      b.addEventListener('click', (e) => { curPage = +e.target.textContent; renderTable(); });
+      pg.appendChild(b);
+    }
+    if (end < pages) { if (end < pages - 1) { const sp = document.createElement('span'); sp.textContent = '…'; pg.appendChild(sp); } const b = document.createElement('button'); b.textContent = pages; b.addEventListener('click', () => { curPage = pages; renderTable(); }); pg.appendChild(b); }
+
+    const next = document.createElement('button');
+    next.textContent = 'Next ›'; next.disabled = curPage === pages;
+    next.addEventListener('click', () => { curPage++; renderTable(); });
+    pg.appendChild(next);
+
+    const info = document.createElement('span');
+    info.style.marginLeft = '8px';
+    info.textContent = `Halaman ${curPage} / ${pages}`;
+    pg.appendChild(info);
+  }
+}
+
+['f-bulan','f-cawangan','f-servis','f-tahap','f-sentimen'].forEach(id => {
+  document.getElementById(id).addEventListener('change', () => { curPage = 1; renderTable(); });
+});
+document.getElementById('btn-reset').addEventListener('click', () => {
+  ['f-bulan','f-cawangan','f-servis','f-tahap','f-sentimen'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  curPage = 1; renderTable();
+});
+
+renderTable();
+</script>
+</body>
+</html>
